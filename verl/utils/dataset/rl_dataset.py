@@ -230,17 +230,18 @@ class RLHFDataset(Dataset):
             if self.image_key in row_dict and row_dict.get(self.image_key, None) is not None:
                 images = [process_image(image) for image in row_dict.pop(self.image_key)]
 
-                # due to the image key is "image" instead of "images" in vllm, we need to use "image" here
-                # link: https://github.com/vllm-project/vllm/blob/3c545c0c3b98ee642373a308197d750d0e449403/vllm/multimodal/parse.py#L205
-                multi_modal_data["image"] = images
+            # Ensure 'image' key has an empty list if images is None
+            # vLLM expects a list, even if empty, for multimodal inputs.
+            multi_modal_data["image"] = images if images is not None else []
 
             videos = None
             if self.video_key in row_dict and row_dict.get(self.video_key, None) is not None:
                 videos = [process_video(video) for video in row_dict.pop(self.video_key)]
 
-                # due to the video key is "video" instead of "videos" in vllm, we need to use "video" here
-                # link: https://github.com/vllm-project/vllm/blob/3c545c0c3b98ee642373a308197d750d0e449403/vllm/multimodal/parse.py#L205
-                multi_modal_data["video"] = [video.numpy() for video in videos]
+            # Ensure 'video' key has an empty list if videos is None
+            # vLLM expects a list, even if empty, for multimodal inputs.
+            # Convert to numpy array as per original logic if videos exist.
+            multi_modal_data["video"] = [video.numpy() for video in videos] if videos is not None else []
 
             model_inputs = self.processor(text=[raw_prompt], images=images, videos=videos, return_tensors="pt")
 
