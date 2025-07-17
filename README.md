@@ -1,254 +1,137 @@
-<div align="center">
- 👋 Hi, everyone! 
-    verl is a RL training library initiated by <b>ByteDance Seed team</b> and maintained by the verl community.
-    <br>
-    <br>
-</div>
+# Verl Codebase and Ray Integration Explained
 
-<div align="center">
+This document provides a detailed explanation of the `verl` codebase, its architecture, and its integration with the Ray framework.
 
-<a href="https://deepwiki.com/volcengine/verl"><img src="https://devin.ai/assets/deepwiki-badge.png" alt="Ask DeepWiki.com" style="height:20px;"></a>
-[![GitHub Repo stars](https://img.shields.io/github/stars/volcengine/verl)](https://github.com/volcengine/verl/stargazers)
-[![Twitter](https://img.shields.io/twitter/follow/verl_project)](https://twitter.com/verl_project)
-<a href="https://join.slack.com/t/verlgroup/shared_invite/zt-2w5p9o4c3-yy0x2Q56s_VlGLsJ93A6vA"><img src="https://img.shields.io/badge/Slack-verl-blueviolet?logo=slack&amp"></a>
-<a href="https://arxiv.org/pdf/2409.19256"><img src="https://img.shields.io/static/v1?label=EuroSys&message=Paper&color=red"></a>
-[![Documentation](https://img.shields.io/badge/documentation-blue)](https://verl.readthedocs.io/en/latest/)
-<a href="https://raw.githubusercontent.com/eric-haibin-lin/verl-community/refs/heads/main/WeChat.JPG"><img src="https://img.shields.io/badge/微信-green?logo=wechat&amp"></a>
+## 1. High-Level Overview
 
-</div>
+The `verl` library is a powerful and flexible tool for reinforcement learning (RL) training of large language models (LLMs). It is designed to be efficient, scalable, and easy to use, making it an ideal choice for researchers and practitioners in the field of LLM alignment.
 
-![seed logo](https://github.com/user-attachments/assets/c42e675e-497c-4508-8bb9-093ad4d1f216)
+At its core, `verl` is built on the **HybridFlow** architecture, which is a novel approach to RL training that combines the best of both single-controller and multi-controller designs. This architecture is based on the idea of decoupling the **control flow** of the RL algorithm from the **computation flow** of the neural network.
 
-<h1 style="text-align: center;">verl: Volcano Engine Reinforcement Learning for LLMs</h1>
+Here's a breakdown of the key concepts:
 
-verl is a flexible, efficient and production-ready RL training library for large language models (LLMs).
+*   **Control Flow:** This refers to the high-level logic of the RL algorithm, such as the sequence of operations in PPO (e.g., data generation, advantage computation, and model updates). In `verl`, the control flow is managed by a single-process **controller** (also known as the driver), which makes it easy to implement and modify RL algorithms.
+*   **Computation Flow:** This refers to the actual neural network computations, such as forward and backward passes, which are often distributed across multiple GPUs. In `verl`, the computation flow is handled by a set of distributed **workers**, which are managed by the controller.
 
-verl is the open-source version of **[HybridFlow: A Flexible and Efficient RLHF Framework](https://arxiv.org/abs/2409.19256v2)** paper.
+This decoupled design provides several key advantages:
 
-verl is flexible and easy to use with:
+*   **Flexibility:** Because the control flow is separate from the computation flow, it is easy to swap out different computation backends (such as FSDP or Megatron-LM) without having to modify the core logic of the RL algorithm. This makes it easy to adapt `verl` to different hardware and software environments.
+*   **Efficiency:** `verl` is designed to be highly efficient, with features such as colocated workers and optimized data transfer protocols. This allows it to achieve state-of-the-art performance on a variety of RL training tasks.
+*   **Scalability:** `verl` is built on top of Ray, which is a powerful framework for building distributed applications. This allows `verl` to scale to hundreds of GPUs, making it possible to train even the largest LLMs.
 
-- **Easy extension of diverse RL algorithms**: The hybrid-controller programming model enables flexible representation and efficient execution of complex post-training dataflows. Build RL dataflows such as GRPO, PPO in a few lines of code.
+In addition to its powerful architecture, `verl` also provides a number of other key features, including:
 
-- **Seamless integration of existing LLM infra with modular APIs**: Decouples computation and data dependencies, enabling seamless integration with existing LLM frameworks, such as FSDP, Megatron-LM, vLLM, SGLang, etc
+*   **Support for a wide range of RL algorithms:** `verl` supports a variety of popular RL algorithms, including PPO, GRPO, and ReMax.
+*   **Integration with popular LLM frameworks:** `verl` is designed to be easily integrated with popular LLM frameworks such as Hugging Face Transformers and vLLM.
+*   **A comprehensive set of tools and utilities:** `verl` provides a wide range of tools and utilities for data preparation, reward modeling, and experiment tracking.
 
-- **Flexible device mapping**: Supports various placement of models onto different sets of GPUs for efficient resource utilization and scalability across different cluster sizes.
+Overall, `verl` is a powerful and flexible library that is well-suited for a wide range of RL training tasks. Its innovative HybridFlow architecture and its rich set of features make it an ideal choice for researchers and practitioners who are looking to push the boundaries of LLM alignment.
 
-- Ready integration with popular HuggingFace models
+## 2. Codebase Structure
 
-verl is fast with:
+The `verl` codebase is organized into a modular and intuitive structure that makes it easy to navigate and understand. Here's a walkthrough of the main components, with a focus on the `verl/trainer`, `verl/workers`, and `verl/single_controller` directories:
 
-- **State-of-the-art throughput**: SOTA LLM training and inference engine integrations and SOTA RL throughput.
+### `verl/`
 
-- **Efficient actor model resharding with 3D-HybridEngine**: Eliminates memory redundancy and significantly reduces communication overhead during transitions between training and generation phases.
+This is the root directory of the `verl` library. It contains the following key subdirectories:
 
-</p>
+*   **`trainer/`**: This directory contains the main entry points for training and the core logic for the RL training process.
+    *   `main_ppo.py`: The main entry point for PPO training. This script is responsible for parsing the configuration, initializing the Ray cluster, and launching the training process.
+    *   `ppo/ray_trainer.py`: This file contains the `RayPPOTrainer` class, which is the heart of the PPO training process. It manages the distributed workers, orchestrates the training loop, and handles all of the details of the PPO algorithm.
+    *   `config/`: This directory contains the default configuration files for the various trainers. These files are written in YAML and can be easily modified to customize the training process.
+*   **`workers/`**: This directory contains the worker classes that are responsible for performing the distributed computations.
+    *   `fsdp_workers.py`: This file defines the worker classes for training with FSDP (Fully Sharded Data Parallel). It includes the `ActorRolloutRefWorker`, `CriticWorker`, and `RewardModelWorker` classes, which encapsulate the logic for running the models on the distributed workers.
+    *   `megatron_workers.py`: This file contains the worker classes for training with Megatron-LM.
+    *   `rollout/`: This directory contains the rollout workers, which are responsible for generating experience data from the environment. It includes implementations for various backends, such as `hf_rollout.py` (for Hugging Face Transformers) and `vllm_rollout.py` (for vLLM).
+*   **`single_controller/`**: This directory contains the core components of the HybridFlow architecture.
+    *   `base/`: This directory contains the base classes for the single-controller architecture, including the `Worker` and `WorkerGroup` classes.
+    *   `ray/`: This directory contains the Ray-specific implementations of the single-controller components, including the `RayWorkerGroup` class and the `@register` decorator.
+*   **`models/`**: This directory contains the model definitions and related utilities. It includes implementations for various popular LLM architectures, such as LLaMA and Qwen.
+*   **`utils/`**: This directory contains a variety of utility functions and classes that are used throughout the codebase. It includes tools for data processing, checkpointing, and logging.
+*   **`protocol.py`**: This file defines the `DataProto` class, which is used to pass data between the controller and the workers.
 
-## News
-- [2025/07] The first verl meetup will be held at ICML Vancouver on July 16th! Please [join us](https://lu.ma/0ek2nyao) if you are at ICML! (onsite only)
-- [2025/07] verl keynote at [AWS AI Hours Singapore](https://pages.awscloud.com/aws-ai-hours-sg.html#agenda) on 7/8, verl & verl-agent project updates at [Agent for SWE meetup](https://lu.ma/e498qhsi) by LF AI & Data Singapore on 7/11.
-- [2025/06] verl with Megatron backend enables large MoE models such as [DeepSeek-671b and Qwen3-236b](https://verl.readthedocs.io/en/latest/perf/dpsk.html).
-- [2025/06] verl team will provide latest project updates at [PyTorch Day China](https://www.lfasiallc.com/pytorch-day-china/) on June 7th. Meet our dev team in Beijing!
-- [2025/04] [Seed-Thinking-v1.5](https://github.com/ByteDance-Seed/Seed-Thinking-v1.5/blob/main/seed-thinking-v1.5.pdf) tech report is released! Trained with verl, Seed-Thinking-v1.5 achieves 86.7 on AIME 2024, 55.0 on Codeforces and 77.3 on GPQA, demonstrating excellent reasoning abilities in STEM and coding. Beyond reasoning tasks, the method demonstrates notable generalization across diverse domains.
-- [2025/03] [DAPO](https://dapo-sia.github.io/) is the open-sourced SOTA RL algorithm that achieves 50 points on AIME 2024 based on the Qwen2.5-32B pre-trained model, surpassing the previous SOTA achieved by DeepSeek's GRPO (DeepSeek-R1-Zero-Qwen-32B). DAPO's training is fully powered by verl and the reproduction code is available in `recipe/dapo` now.
-<details><summary> more... </summary>
-<ul>
-  <li> [2025/04] [VAPO](https://arxiv.org/pdf/2504.05118) (value-based augmented PPO) paper covers our latest RL method for reasoning models. Trained from Qwen-32B-base model, VAPO achieves 60.4 on AIME 2024, outperforming DAPO-32B.</li>
-  <li>[2025/05] [PF-PPO](https://arxiv.org/abs/2409.06957), accepted to ICML 2025, is now supported in verl! PF-PPO enhances policy learning efficiency and robustness by filtering potentially noisy reward signals and reusing high-quality experiences via a replay buffer.</li>
-  <li>[2025/04] We will give a tutorial about latest post-training techniques and programming guide for verl at [ICLR 2025 Expo](https://iclr.cc/virtual/2025/calendar?filter_events=Expo+Talk+Panel&filter_rooms=), [SCI-FM workshop](https://open-foundation-model.github.io/) and [LMSys afterparty](https://lu.ma/d23nyynm). Talk materials available [here](https://github.com/eric-haibin-lin/verl-community/tree/main/iclr25). </li>
-  <li>[2025/03] verl v0.3.0.post1 is released! See [release note](https://github.com/volcengine/verl/releases/) for details. It achieves [~1.4x speedup](https://tongyx361.github.io/blogs/posts/verl-intro/#/verl-flexible-and-efficient-rl-for-llms) compared to prev versions.</li>
-  <li>[2025/05] verl will be presented at [A2M Shanghai](https://a2m.msup.com.cn/home/?aid=4488&city=shanghai) on 5/16 - 5/17.</li>
-  <li>[2025/05] verl will be presented at [GOSIM x PyTorch Day 2025](https://paris2025.gosim.org/). See you in Paris! </li>
-  <li>[2025/03] We introduced the programming model of verl at the [vLLM Beijing Meetup](https://mp.weixin.qq.com/s/n77GibL2corAtQHtVEAzfg) and [verl intro and updates](https://github.com/eric-haibin-lin/verl-community/blob/main/slides/verl-lmsys-meetup.pdf) at the [SGLang-LMSYS Org Meetup](https://lu.ma/ntjrr7ig) in Sunnyvale mid-March.</li>
-  <li>[2025/03] We will present verl(HybridFlow) at EuroSys 2025. See you in Rotterdam!</li>
-  <li>[2025/02] verl v0.2.0.post2 is released!</li>
-  <li>[2025/02] We presented verl in the <a href="https://lu.ma/ji7atxux">Bytedance/NVIDIA/Anyscale Ray Meetup</a>. See you in San Jose!</li>
-  <li>[2025/01] [Doubao-1.5-pro](https://team.doubao.com/zh/special/doubao_1_5_pro) is released with SOTA-level performance on LLM & VLM. The RL scaling preview model is trained using verl, reaching OpenAI O1-level performance on math benchmarks (70.0 pass@1 on AIME).</li>
-  <li>[2024/12] verl is presented at Ray Forward 2024. Slides available <a href="https://github.com/eric-haibin-lin/verl-community/blob/main/slides/Ray_Forward_2024_%E5%B7%AB%E9%94%A1%E6%96%8C.pdf">here</a></li>
-  <li>[2024/12] The team presented <a href="https://neurips.cc/Expo/Conferences/2024/workshop/100677">Post-training LLMs: From Algorithms to Infrastructure</a> at NeurIPS 2024. <a href="https://github.com/eric-haibin-lin/verl-data/tree/neurips">Slides</a> and <a href="https://neurips.cc/Expo/Conferences/2024/workshop/100677">video</a> available.</li>
-  <li>[2024/10] verl is presented at Ray Summit. <a href="https://www.youtube.com/watch?v=MrhMcXkXvJU&list=PLzTswPQNepXntmT8jr9WaNfqQ60QwW7-U&index=37">Youtube video</a> available.</li>
-  <li>[2024/08] HybridFlow (verl) is accepted to EuroSys 2025.</li>
-</ul>   
-</details>
+By organizing the code in this way, `verl` makes it easy to separate the concerns of the different components of the RL training process. The `trainer` directory contains the high-level logic of the RL algorithm, the `workers` directory contains the low-level details of the distributed computation, and the `single_controller` directory provides the glue that holds everything together. This modular design makes it easy to extend and customize the library to meet the needs of a wide variety of RL training tasks.
 
-## Key Features
+## 3. Ray Integration
 
-- **FSDP**, **FSDP2** and **Megatron-LM** for training.
-- **vLLM**, **SGLang** and **HF Transformers** for rollout generation.
-- Compatible with Hugging Face Transformers and Modelscope Hub: [Qwen-3](https://github.com/volcengine/verl/blob/main/examples/grpo_trainer/run_qwen3-8b.sh), Qwen-2.5, Llama3.1, Gemma2, DeepSeek-LLM, etc
-- Supervised fine-tuning.
-- Reinforcement learning with [PPO](examples/ppo_trainer/), [GRPO](examples/grpo_trainer/), [ReMax](examples/remax_trainer/), [REINFORCE++](https://verl.readthedocs.io/en/latest/examples/config.html#algorithm), [RLOO](examples/rloo_trainer/), [PRIME](recipe/prime/), [DAPO](recipe/dapo/), [DrGRPO](recipe/drgrpo), [KL_Cov & Clip_Cov](recipe/entropy) etc.
-  - Support model-based reward and function-based reward (verifiable reward) for math, [coding](https://github.com/volcengine/verl/tree/main/recipe/dapo), etc
-  - Support vision-language models (VLMs) and [multi-modal RL](examples/grpo_trainer/run_qwen2_5_vl-7b.sh) with Qwen2.5-vl, Kimi-VL
-  - [Multi-turn with tool calling](https://github.com/volcengine/verl/tree/main/examples/sglang_multiturn)
-- LLM alignment recipes such as [Self-play preference optimization (SPPO)](https://github.com/volcengine/verl/tree/main/recipe/sppo)
-- Flash attention 2, [sequence packing](examples/ppo_trainer/run_qwen2-7b_seq_balance.sh), [sequence parallelism](examples/ppo_trainer/run_deepseek7b_llm_sp2.sh) support via DeepSpeed Ulysses, [LoRA](examples/sft/gsm8k/run_qwen_05_peft.sh), [Liger-kernel](examples/sft/gsm8k/run_qwen_05_sp2_liger.sh).
-- Scales up to 671B models and hundreds of GPUs with [expert parallelism](https://github.com/volcengine/verl/pull/1467)
-- Multi-gpu [LoRA RL](https://verl.readthedocs.io/en/latest/advance/ppo_lora.html) support to save memory.
-- Experiment tracking with wandb, swanlab, mlflow and tensorboard.
+Ray is a powerful and flexible framework for building distributed applications, and it plays a crucial role in the `verl` library. Ray is used to manage the distributed workers, orchestrate the training process, and facilitate communication between the controller and the workers. Here's a detailed explanation of how Ray is integrated into the `verl` codebase:
 
-## Upcoming Features and Changes
+### Ray Remote Actors for Distributed Workers
 
-- Q3 Roadmap https://github.com/volcengine/verl/issues/2388
-- DeepSeek 671b optimizations with Megatron https://github.com/volcengine/verl/issues/1033
-- Multi-turn rollout and tools using optimizations https://github.com/volcengine/verl/issues/1882
-- [Agent integration](https://github.com/volcengine/verl/tree/main/verl/experimental/agent_loop)
-- Async and off-policy architecture https://github.com/volcengine/verl/pull/2231
-- List of breaking changes since v0.4 https://github.com/volcengine/verl/discussions/2270
+At the heart of `verl`'s distributed architecture is the use of Ray remote actors for the workers. A Ray actor is a stateful worker process that can be created and controlled by a driver program. In `verl`, each worker (such as an `ActorRolloutRefWorker` or a `CriticWorker`) is implemented as a Ray actor. This allows `verl` to easily distribute the computation across multiple GPUs and multiple nodes.
 
-## Getting Started
+The workers are created in the `verl/trainer/main_ppo.py` script, which is the main entry point for PPO training. The `TaskRunner` class is a Ray remote actor that is responsible for creating the other workers and running the training process.
 
-<a href="https://verl.readthedocs.io/en/latest/index.html"><b>Documentation</b></a>
+### The `WorkerGroup` Abstraction
 
-**Quickstart:**
+To simplify the management of the distributed workers, `verl` provides a `WorkerGroup` abstraction. A `WorkerGroup` is a collection of workers that are all performing the same role (such as actor, critic, or reward model). The `WorkerGroup` provides a convenient way to interact with all of the workers in a group at once.
 
-- [Installation](https://verl.readthedocs.io/en/latest/start/install.html)
-- [Quickstart](https://verl.readthedocs.io/en/latest/start/quickstart.html)
-- [Programming Guide](https://verl.readthedocs.io/en/latest/hybrid_flow.html) & [Tech Talk](https://hcqnc.xetlk.com/sl/3vACOK) (in Chinese)
-- [PPO in verl](https://verl.readthedocs.io/en/latest/algo/ppo.html)
-- [GRPO in verl](https://verl.readthedocs.io/en/latest/algo/grpo.html)
+The `RayWorkerGroup` class in `verl/single_controller/ray/` is the Ray-specific implementation of the `WorkerGroup` abstraction. It uses Ray's actor management capabilities to create and manage the workers, and it provides a simple and intuitive API for interacting with them.
 
-**Running a PPO example step-by-step:**
+### The `@register` Decorator
 
+One of the key features of `verl`'s Ray integration is the use of the `@register` decorator. This decorator is used to define the communication patterns between the controller and the workers. It allows you to specify how data should be dispatched to the workers and how the results should be collected.
 
-- [Prepare Data for Post-Training](https://verl.readthedocs.io/en/latest/preparation/prepare_data.html)
-- [Implement Reward Function for Dataset](https://verl.readthedocs.io/en/latest/preparation/reward_function.html)
-- [PPO Example Architecture](https://verl.readthedocs.io/en/latest/examples/ppo_code_architecture.html)
-- [Config Explanation](https://verl.readthedocs.io/en/latest/examples/config.html)
+The `@register` decorator is defined in `verl/single_controller/base/decorator.py` and is used extensively in the worker classes in `verl/workers/`. For example, the `update_actor` method in `verl/workers/fsdp_workers.py` is decorated with `@register(dispatch_mode=Dispatch.DP_COMPUTE_PROTO)`, which tells `verl` to dispatch the data to the workers using a data-parallel computation protocol.
 
-**Reproducible algorithm baselines:**
+This decorator simplifies the code and makes it easy to implement complex communication patterns without having to write a lot of boilerplate code.
 
-- [RL performance on coding, math](https://verl.readthedocs.io/en/latest/algo/baseline.html)
+### Ray for Managing the Distributed Training Process
 
-**For code explanation and advance usage (extension):**
+In addition to managing the workers, Ray is also used to manage the overall distributed training process. The `ray.init()` function is called in `verl/trainer/main_ppo.py` to initialize the Ray cluster, and the `ray.get()` function is used to wait for the results of the remote computations.
 
-- PPO Trainer and Workers
-  - [PPO Ray Trainer](https://verl.readthedocs.io/en/latest/workers/ray_trainer.html)
-  - [PyTorch FSDP Backend](https://verl.readthedocs.io/en/latest/workers/fsdp_workers.html)
-  - [Megatron-LM Backend](https://verl.readthedocs.io/en/latest/index.html)
+Ray's fault tolerance features are also used to ensure that the training process is robust to failures. If a worker fails, Ray will automatically restart it, and the training process will continue from where it left off.
 
-- Advanced Usage and Extension
-  - [Add Models with the FSDP Backend](https://verl.readthedocs.io/en/latest/advance/fsdp_extension.html)
-  - [Add Models with the Megatron-LM Backend](https://verl.readthedocs.io/en/latest/advance/megatron_extension.html)
-  - [Multi-turn Rollout Support](https://verl.readthedocs.io/en/latest/sglang_multiturn/multiturn.html)
-  - [Search Tool Integration](https://verl.readthedocs.io/en/latest/sglang_multiturn/search_tool_example.html)
-  - [Sandbox Fusion Integration](https://verl.readthedocs.io/en/latest/examples/sandbox_fusion_example.html)
-  - [Deployment using Separate GPU Resources](https://github.com/volcengine/verl/tree/main/examples/split_placement)
-  - [Extend to Other RL(HF) algorithms](https://verl.readthedocs.io/en/latest/advance/dpo_extension.html)
-  - [Ray API design tutorial](https://verl.readthedocs.io/en/latest/advance/placement.html)
+Overall, Ray is a critical component of the `verl` library. It provides the foundation for `verl`'s distributed architecture, and it makes it possible to train large language models on a massive scale. The tight integration between `verl` and Ray is one of the key reasons why `verl` is such a powerful and flexible tool for RL training.
 
-**Blogs from the community**
+## 4. PPO Trainer Walkthrough
 
-- [When Reasoning Models Break Tokenization: The Hidden Complexity of Multiturn Training](https://github.com/zhaochenyang20/Awesome-ML-SYS-Tutorial/blob/main/rlhf/verl/multi-turn/fast_tokenization/multiturn_tokenization_and_masking.md)
-- [verl deployment on AWS SageMaker](https://medium.com/@kaige.yang0110/run-verl-on-sagemaker-using-4x8-l40s-gpus-8e6d5c3c61d3)
-- [verl x SGLang Multi-turn Code Walkthrough](https://github.com/zhaochenyang20/Awesome-ML-SYS-Tutorial/blob/main/rlhf/verl/multi-turn/code-walk-through/readme_EN.md)
-- [Optimizing SGLang Memory Usage in verl](https://hebiao064.github.io/rl-memory-management)
-- [SGLang, verl, OpenBMB and Tsinghua University: Pioneering End-to-End Multi-Turn RLHF](https://github.com/zhaochenyang20/Awesome-ML-SYS-Tutorial/blob/main/rlhf/verl/multi-turn/verl-multiturn-rollout-Release.md)
-- [Reinforcement Learning from Human Feedback on AMD GPUs with verl and ROCm Integration](https://rocm.blogs.amd.com/artificial-intelligence/verl-large-scale/README.html)
-- [veMLP x verl ：玩转强化学习训练](https://mp.weixin.qq.com/s/7nbqxk4knMGd-hQE9ls2tA)
-- [使用 verl 进行 GRPO 分布式强化学习训练最佳实践](https://www.volcengine.com/docs/6459/1463942)
-- [HybridFlow verl 原文浅析](https://github.com/zhaochenyang20/Awesome-ML-SYS-Tutorial/blob/main/rlhf/verl/readme.md)
-- [最高提升 20 倍吞吐量！豆包大模型团队发布全新 RLHF 框架，现已开源！](https://team.doubao.com/en/blog/%E6%9C%80%E9%AB%98%E6%8F%90%E5%8D%8720%E5%80%8D%E5%90%9E%E5%90%90%E9%87%8F-%E8%B1%86%E5%8C%85%E5%A4%A7%E6%A8%A1%E5%9E%8B%E5%9B%A2%E9%98%9F%E5%8F%91%E5%B8%83%E5%85%A8%E6%96%B0-rlhf-%E6%A1%86%E6%9E%B6-%E7%8E%B0%E5%B7%B2%E5%BC%80%E6%BA%90)
+Now, let's walk through the PPO training process in `verl`, from the main entry point to the core training loop. This will illustrate how the controller interacts with the workers to execute the PPO algorithm.
 
-## Performance Tuning Guide
+### 1. Entry Point: `verl/trainer/main_ppo.py`
 
-The performance is essential for on-policy RL algorithm. We have written a detailed [performance tuning guide](https://verl.readthedocs.io/en/latest/perf/perf_tuning.html) to help you optimize performance.
+The PPO training process begins in the `main` function of `verl/trainer/main_ppo.py`. This function is decorated with `@hydra.main`, which means that it uses the Hydra library for configuration management.
 
-## Upgrade to vLLM >= v0.8.2
+The `main` function does the following:
 
-verl now supports vLLM>=0.8.2 when using FSDP as the training backend. Please refer to [this document](https://github.com/volcengine/verl/blob/main/docs/README_vllm0.8.md) for the installation guide and more information. Please avoid vllm 0.7.x, which contains bugs that may lead to OOMs and unexpected errors.
+1.  **Initializes Ray:** It calls `ray.init()` to initialize the Ray cluster. This sets up the distributed environment that will be used for the training process.
+2.  **Creates the `TaskRunner`:** It creates a remote instance of the `TaskRunner` class. The `TaskRunner` is a Ray actor that is responsible for running the actual training process.
+3.  **Runs the `TaskRunner`:** It calls the `run` method of the `TaskRunner` actor. This starts the training process.
 
-## Use Latest SGLang
+### 2. The `TaskRunner`
 
-SGLang is fully supported with verl, and SGLang RL Group is working extensively on building unique features, including multi-turn agentic RL, VLM RLHF, server-based RL, and partial rollout. Please refer to [this document](https://verl.readthedocs.io/en/latest/workers/sglang_worker.html) for the installation guide and more information.
+The `TaskRunner` class is also defined in `verl/trainer/main_ppo.py`. Its `run` method is where the main training logic resides. Here's what it does:
 
-## Upgrade to FSDP2
+1.  **Loads the Configuration:** It loads the training configuration from the Hydra config object.
+2.  **Initializes the Tokenizer and Processor:** It initializes the tokenizer and processor that will be used for data preprocessing.
+3.  **Defines the Worker Classes:** It defines the worker classes that will be used for the actor, critic, and other roles. The specific worker classes that are used depend on the training strategy (e.g., FSDP or Megatron).
+4.  **Creates the `RayPPOTrainer`:** It creates an instance of the `RayPPOTrainer` class. This is the main class that orchestrates the PPO training process.
+5.  **Initializes the Workers:** It calls the `init_workers` method of the `RayPPOTrainer` to initialize the distributed workers.
+6.  **Starts the Training Process:** It calls the `fit` method of the `RayPPOTrainer` to start the main training loop.
 
-verl is fully embracing FSDP2! FSDP2 is recommended by torch distributed team, providing better throughput and memory usage, and is composible with other features (e.g. torch.compile). To enable FSDP2, simply use verl main and set the following options:
-```
-actor_rollout_ref.ref.strategy=fsdp2
-actor_rollout_ref.actor.strategy=fsdp2
-critic.strategy=fsdp2 
-reward_model.strategy=fsdp2 
-```
-Furthermore, FSDP2 cpu offloading is compatible with gradient accumulation. You can turn it on to save memory with `actor_rollout_ref.actor.fsdp_config.offload_policy=True`. For more details, see https://github.com/volcengine/verl/pull/1026
+### 3. The `RayPPOTrainer`
 
-## AMD Support (ROCm Kernel)
+The `RayPPOTrainer` class is defined in `verl/trainer/ppo/ray_trainer.py`. This class is the heart of the PPO training process. It manages the `WorkerGroup`s for the actor, critic, and other roles, and it orchestrates the main training loop.
 
-verl now supports FSDP as the training engine (Megatron support coming soon) and both integrates with vLLM and SGLang as inference engines. Please refer to [this document](https://github.com/volcengine/verl/blob/main/docs/amd_tutorial/amd_build_dockerfile_page.rst) for the installation guide and more information, and [this document](https://github.com/volcengine/verl/blob/main/docs/amd_tutorial/amd_vllm_page.rst) for the vLLM performance tuning for ROCm.
+The `fit` method of the `RayPPOTrainer` contains the main training loop. Here's a step-by-step breakdown of what happens in this loop:
 
+1.  **Data Loading:** The controller loads a batch of data from the training dataset.
+2.  **Data Generation:** The controller calls the `generate_sequences` method of the `actor_rollout_wg` (the `WorkerGroup` for the actor and rollout workers). This tells the workers to generate a batch of experience data from the environment.
+3.  **Log Probability Calculation:** The controller calls the `compute_log_prob` method of the `actor_rollout_wg` to compute the log probabilities of the generated sequences.
+4.  **Value Computation:** The controller calls the `compute_values` method of the `critic_wg` (the `WorkerGroup` for the critic) to compute the value estimates for the generated sequences.
+5.  **Advantage Computation:** The controller computes the advantages and returns using the GAE (Generalized Advantage Estimation) algorithm.
+6.  **Model Updates:** The controller calls the `update_actor` and `update_critic` methods of the respective `WorkerGroup`s to update the actor and critic models.
 
-## Citation and acknowledgement
+This process is repeated for each batch of data in the training dataset. The controller coordinates the entire process, dispatching tasks to the workers and collecting the results. The use of Ray and the `WorkerGroup` abstraction makes it easy to manage the distributed workers and to implement the complex dataflow of the PPO algorithm.
 
-If you find the project helpful, please cite:
+## 5. Conclusion
 
-- [HybridFlow: A Flexible and Efficient RLHF Framework](https://arxiv.org/abs/2409.19256v2)
-- [A Framework for Training Large Language Models for Code Generation via Proximal Policy Optimization](https://i.cs.hku.hk/~cwu/papers/gmsheng-NL2Code24.pdf)
+In conclusion, the `verl` library is a powerful and flexible tool for reinforcement learning (RL) training of large language models (LLMs). Its innovative **HybridFlow** architecture, which decouples the control flow from the computation flow, provides a number of key advantages, including:
 
-```bibtex
-@article{sheng2024hybridflow,
-  title   = {HybridFlow: A Flexible and Efficient RLHF Framework},
-  author  = {Guangming Sheng and Chi Zhang and Zilingfeng Ye and Xibin Wu and Wang Zhang and Ru Zhang and Yanghua Peng and Haibin Lin and Chuan Wu},
-  year    = {2024},
-  journal = {arXiv preprint arXiv: 2409.19256}
-}
-```
+*   **Flexibility:** `verl`'s modular design makes it easy to swap out different computation backends and to implement new RL algorithms.
+*   **Efficiency:** `verl` is designed to be highly efficient, with features such as colocated workers and optimized data transfer protocols.
+*   **Scalability:** `verl` is built on top of Ray, which allows it to scale to hundreds of GPUs.
 
-verl is inspired by the design of Nemo-Aligner, Deepspeed-chat and OpenRLHF. The project is adopted and contributed by Bytedance, Anyscale, LMSys.org, [Alibaba Qwen team](https://github.com/QwenLM/), Shanghai AI Lab, Tsinghua University, UC Berkeley, UCLA, UIUC, University of Hong Kong, ke.com, [All Hands AI](https://www.all-hands.dev/), [ModelBest](http://modelbest.cn/), JD AI Lab, Microsoft Research, [StepFun](https://www.stepfun.com/), Amazon, LinkedIn, Meituan, [Camel-AI](https://www.camel-ai.org/), [OpenManus](https://github.com/OpenManus), Xiaomi, NVIDIA research, [Baichuan](https://www.baichuan-ai.com/home), [RedNote](https://www.xiaohongshu.com/), [SwissAI](https://www.swiss-ai.org/), [Moonshot AI (Kimi)](https://www.moonshot-ai.com/), Baidu, Snowflake, Skywork.ai, JetBrains, [IceSword Lab](https://www.iceswordlab.com), and many more.
+The tight integration with Ray is a key part of what makes `verl` so powerful. Ray is used to manage the distributed workers, orchestrate the training process, and facilitate communication between the controller and the workers. The use of Ray remote actors, the `WorkerGroup` abstraction, and the `@register` decorator all contribute to making `verl` a robust and scalable solution for RL training.
 
-## Awesome work using verl
-
-- [TinyZero](https://github.com/Jiayi-Pan/TinyZero): a reproduction of **DeepSeek R1 Zero** recipe for reasoning tasks ![GitHub Repo stars](https://img.shields.io/github/stars/Jiayi-Pan/TinyZero)
-- [SkyThought](https://github.com/NovaSky-AI/SkyThought): RL training for Sky-T1-7B by NovaSky AI team. ![GitHub Repo stars](https://img.shields.io/github/stars/NovaSky-AI/SkyThought)
-- [simpleRL-reason](https://github.com/hkust-nlp/simpleRL-reason): SimpleRL-Zoo: Investigating and Taming Zero Reinforcement Learning for Open Base Models in the Wild ![GitHub Repo stars](https://img.shields.io/github/stars/hkust-nlp/simpleRL-reason)
-- [Easy-R1](https://github.com/hiyouga/EasyR1): **Multi-modal** RL training framework ![GitHub Repo stars](https://img.shields.io/github/stars/hiyouga/EasyR1)
-- [OpenManus-RL](https://github.com/OpenManus/OpenManus-RL): LLM Agents RL tunning framework for multiple agent environments. ![GitHub Repo stars](https://img.shields.io/github/stars/OpenManus/OpenManus-RL)
-- [rllm](https://github.com/agentica-project/rllm): async RL training with [verl-pipeline](https://github.com/agentica-project/verl-pipeline) ![GitHub Repo stars](https://img.shields.io/github/stars/agentica-project/rllm)
-- [RAGEN](https://github.com/ZihanWang314/ragen): a general-purpose reasoning **agent** training framework ![GitHub Repo stars](https://img.shields.io/github/stars/ZihanWang314/ragen)
-- [Search-R1](https://github.com/PeterGriffinJin/Search-R1): RL with reasoning and **searching (tool-call)** interleaved LLMs ![GitHub Repo stars](https://img.shields.io/github/stars/PeterGriffinJin/Search-R1)
-- [ReSearch](https://github.com/Agent-RL/ReSearch): Learning to **Re**ason with **Search** for LLMs via Reinforcement Learning ![GitHub Repo stars](https://img.shields.io/github/stars/Agent-RL/ReSearch)
-- [Skywork-OR1](https://github.com/SkyworkAI/Skywork-OR1): Skywork open reaonser series ![GitHub Repo stars](https://img.shields.io/github/stars/SkyworkAI/Skywork-OR1)
-- [ToRL](https://github.com/GAIR-NLP/ToRL): Scaling tool-integrated RL ![GitHub Repo stars](https://img.shields.io/github/stars/GAIR-NLP/ToRL)
-- [Absolute Zero Reasoner](https://github.com/LeapLabTHU/Absolute-Zero-Reasoner): [A no human curated data self-play framework for reasoning](https://arxiv.org/abs/2505.03335) ![GitHub Repo stars](https://img.shields.io/github/stars/LeapLabTHU/Absolute-Zero-Reasoner)
-- [verl-agent](https://github.com/langfengQ/verl-agent): A scalable training framework for **long-horizon LLM/VLM agents**, along with a new algorithm **GiGPO** ![GitHub Repo stars](https://img.shields.io/github/stars/langfengQ/verl-agent)
-- [RL-Factory](https://github.com/Simple-Efficient/RL-Factory): An easy and efficient RL post-training framework for Agentic Learning ![GitHub Repo stars](https://img.shields.io/github/stars/Simple-Efficient/RL-Factory)
-- [ReTool](https://retool-rl.github.io/): ReTool: reinforcement learning for strategic tool use in LLMs. Code release is in progress...
-- [verl-tool](https://github.com/TIGER-AI-Lab/verl-tool): An unified and easy-to-extend tool-agent training framework based on verl![GitHub Repo stars](https://img.shields.io/github/stars/TIGER-AI-Lab/verl-tool)
-- [PRIME](https://github.com/PRIME-RL/PRIME): Process reinforcement through implicit rewards ![GitHub Repo stars](https://img.shields.io/github/stars/PRIME-RL/PRIME)
-- [MemAgent](https://github.com/BytedTsinghua-SIA/MemAgent): MemAgent: Reshaping Long-Context LLM with Multi-Conv RL based Memory Agent ![GitHub Repo stars](https://img.shields.io/github/stars/BytedTsinghua-SIA/MemAgent)
-- [POLARIS](https://github.com/ChenxinAn-fdu/POLARIS): A Post-training recipe for scaling RL on Advanced Reasoning models ![GitHub Repo stars](https://img.shields.io/github/stars/ChenxinAn-fdu/POLARIS)
-- [GUI-R1](https://github.com/ritzz-ai/GUI-R1): **GUI-R1**: A Generalist R1-style Vision-Language Action Model For **GUI Agents** ![GitHub Repo stars](https://img.shields.io/github/stars/ritzz-ai/GUI-R1)
-- [DeepRetrieval](https://github.com/pat-jj/DeepRetrieval): RL Training of **Search Agent** with **Search/Retrieval Outcome** ![GitHub Repo stars](https://img.shields.io/github/stars/pat-jj/DeepRetrieval)
-- [Code-R1](https://github.com/ganler/code-r1): Reproducing R1 for **Code** with Reliable Rewards ![GitHub Repo stars](https://img.shields.io/github/stars/ganler/code-r1)
-- [DeepResearcher](https://github.com/GAIR-NLP/DeepResearcher): Scaling deep research via reinforcement learning in real-world environments ![GitHub Repo stars](https://img.shields.io/github/stars/GAIR-NLP/DeepResearcher)
-- [VAGEN](https://github.com/RAGEN-AI/VAGEN): Training VLM agents with multi-turn reinforcement learning ![GitHub Repo stars](https://img.shields.io/github/stars/RAGEN-AI/VAGEN)
-- [RM-R1](https://arxiv.org/abs/2505.02387): RL training of reasoning reward models ![GitHub Repo stars](https://img.shields.io/github/stars/RM-R1-UIUC/RM-R1)
-- [LUFFY](https://arxiv.org/pdf/2504.14945): Learning to Reason under Off-Policy Guidance![GitHub Repo stars](https://img.shields.io/github/stars/ElliottYan/LUFFY)
-- [DeepMath](https://github.com/zwhe99/DeepMath): DeepMath-103K data and series models for math reasoning![GitHub Repo stars](https://img.shields.io/github/stars/zwhe99/DeepMath)
-- [Entropy Mechanism of RL](https://github.com/PRIME-RL/Entropy-Mechanism-of-RL): The Entropy Mechanism of Reinforcement Learning for Large Language Model Reasoning![GitHub Repo stars](https://img.shields.io/github/stars/PRIME-RL/Entropy-Mechanism-of-RL)
-- [LLaSA-TTS-GRPO](https://github.com/channel-io/ch-tts-llasa-rl-grpo): TTS fine-tuning with GRPO optimization based on LLASA models ![GitHub Repo stars](https://img.shields.io/github/stars/channel-io/ch-tts-llasa-rl-grpo)
-- [PF-PPO](https://arxiv.org/abs/2409.06957): Policy Filtration for PPO based on the reliability of reward signals for more efficient and robust RLHF.
-- [RACRO](https://github.com/gyhdog99/RACRO2): Build multi-modal reasoning models via decoupling it into query-conditioned captioning and text-only reasoning ![GitHub Repo stars](https://img.shields.io/github/stars/gyhdog99/RACRO2)
-
-and many more awesome work listed in [recipe](recipe/README.md).
-
-## Contribution Guide
-
-See [contributions guide](CONTRIBUTING.md)
-
-## About [ByteDance Seed Team](https://team.doubao.com/)
-
-Founded in 2023, ByteDance Seed Team is dedicated to crafting the industry's most advanced AI foundation models. The team aspires to become a world-class research team and make significant contributions to the advancement of science and society. You can get to know Bytedance Seed better through the following channels👇
-<div>
-  <a href="https://team.doubao.com/">
-    <img src="https://img.shields.io/badge/Website-%231e37ff?style=for-the-badge&logo=bytedance&logoColor=white"></a>
-  <a href="https://github.com/user-attachments/assets/469535a8-42f2-4797-acdf-4f7a1d4a0c3e">
-    <img src="https://img.shields.io/badge/WeChat-07C160?style=for-the-badge&logo=wechat&logoColor=white"></a>
- <a href="https://www.xiaohongshu.com/user/profile/668e7e15000000000303157d?xsec_token=ABl2-aqekpytY6A8TuxjrwnZskU-6BsMRE_ufQQaSAvjc%3D&xsec_source=pc_search">
-    <img src="https://img.shields.io/badge/Xiaohongshu-%23FF2442?style=for-the-badge&logo=xiaohongshu&logoColor=white"></a>
-  <a href="https://www.zhihu.com/org/dou-bao-da-mo-xing-tuan-dui/">
-    <img src="https://img.shields.io/badge/zhihu-%230084FF?style=for-the-badge&logo=zhihu&logoColor=white"></a>
-
-</div>
----
-
-We are HIRING! Send us an [email](mailto:haibin.lin@bytedance.com) if you are interested in internship/FTE opportunities in RL for agents.
+By providing a comprehensive and easy-to-use platform for RL training, `verl` is helping to accelerate the development of more capable and aligned LLMs. Its powerful features and its commitment to open source make it an invaluable tool for researchers and practitioners in the field of artificial intelligence.
