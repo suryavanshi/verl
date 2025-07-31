@@ -480,6 +480,11 @@ Reward Model
   of computing rule-based reward and handling different reward sources. Default
   is ``naive``. If all verification functions are multiprocessing-safe, the reward
   manager can be set to ``prime`` for parallel verification.
+``reward_model.overlong_buffer``:
+  Configure penalties for slightly overlong outputs. Set ``enable`` to ``True``
+  to activate the penalty, ``len`` to the allowed buffer length, and
+  ``penalty_factor`` to the maximum penalty when the length reaches
+  ``max_response_length + len``.
 
 Customized Reward Function
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
